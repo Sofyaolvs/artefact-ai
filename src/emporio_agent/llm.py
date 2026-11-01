@@ -22,7 +22,8 @@ from emporio_agent import config
 
 TEMPERATURE = 0.2  # atendimento factual: pouca criatividade
 _RETRYABLE_CODES = {429, 500, 503}
-_MAX_ATTEMPTS = 3
+_MAX_ATTEMPTS = 4
+_MAX_WAIT_SECONDS = 65  # o limite gratuito do Gemini é por minuto
 
 
 class ConfigError(RuntimeError):
@@ -95,6 +96,19 @@ def parse_response(response: types.GenerateContentResponse) -> LLMResponse:
     return LLMResponse(text="".join(texts).strip(), tool_calls=calls)
 
 
+def retry_delay(exc: errors.APIError, attempt: int) -> float:
+    """Espera antes de tentar de novo: o tempo que a própria API pede (429) ou um recuo exponencial."""
+    details = exc.details.get("error", {}).get("details", []) if isinstance(exc.details, dict) else []
+    for item in details:
+        delay = item.get("retryDelay") if isinstance(item, dict) else None
+        if delay and str(delay).endswith("s"):
+            try:
+                return min(float(str(delay)[:-1]) + 1, _MAX_WAIT_SECONDS)
+            except ValueError:
+                pass
+    return min(2**attempt, _MAX_WAIT_SECONDS)
+
+
 class GeminiClient:
     def __init__(self, api_key: str | None = None, model: str | None = None):
         api_key = api_key or config.GEMINI_API_KEY
@@ -126,5 +140,5 @@ class GeminiClient:
             except errors.APIError as exc:
                 if exc.code not in _RETRYABLE_CODES or attempt == _MAX_ATTEMPTS:
                     raise
-                time.sleep(2**attempt)
+                time.sleep(retry_delay(exc, attempt))
         raise AssertionError("inalcançável")
