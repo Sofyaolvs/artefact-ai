@@ -147,11 +147,13 @@ Weak spots these conversations show, so it is clear what the model still gets wr
 
 ## Use of AI coding assistants
 
-<!-- REVIEW BEFORE SUBMITTING: this section describes the workflow as it happened; edit it so it reflects exactly what you did, reviewed and decided. -->
+I used **Claude Code** (Claude Sonnet 5.5, in the desktop app) only during development, as an assistant, not as the main developer. The workflow:
 
-I used **Claude Code** (Claude Sonnet 5.5, in the desktop app) throughout development. The workflow:
-
-1. I handed it the case statement and the provided files and asked for an analysis and a commit plan before any code. The analysis flagged the inconsistencies listed under "Assumptions".
-2. The architecture decisions (function calling, rules in code, BM25 instead of vectors, customer verification for orders, Gemini as the provider) were discussed in the plan and approved by me before implementation.
-3. Claude Code wrote the code and tests, one commit at a time, and only when I asked for each commit.
-4. I ran the agent against the real Gemini API; the problems found (the agent asking too many questions instead of searching, the per-minute request limit, an out-of-stock product reported as "not in the catalog") became fixes in the prompt, the tools and the client.
+1. I handed it the case statement and the provided files for a general analysis, which flagged the inconsistencies listed under "Assumptions about the data and the manual".
+2. The architecture decisions (function calling, business rules in code, BM25 instead of vectors, customer verification for orders, Gemini as the provider) were reviewed to check that they made sense for this case before implementation.
+3. Claude Code helped write the code and the tests. I reviewed it all and adjusted what was needed in the functions, the tests and the rest of the project, to be sure the result was quality code I understand and not something invented by the AI, and to avoid problems.
+4. I ran the agent against the real Gemini API, found problems, and made the corrections myself:
+   - *The agent asked too many questions instead of searching* (e.g. "which kind of guitar?" for "guitars up to R$ 1,000"): I changed the system prompt so it searches first and only asks when there is nothing to look up.
+   - *The free tier's per-minute request limit* made calls fail with 429: I changed the client's retry to wait for the time the API itself asks for (up to 65 s), and switched the default model to `gemini-3.5-flash-lite`, which has room for these conversations.
+   - *An out-of-stock product was reported as "not in the catalog"* (the search hides unavailable items): I made the search tool report items that exist but are unavailable, pointed the prompt to the product-details tool for named products, and added tests for both cases.
+   - *The agent said it "could not find" an order that failed verification*, which hints that the order exists or not: I reworded the tool's message and the prompt so the answer is only "could not validate with these data".
