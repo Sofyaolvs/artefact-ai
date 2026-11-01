@@ -40,7 +40,8 @@ DECLARATIONS: list[dict[str, Any]] = [
         "name": "detalhes_produto",
         "description": (
             "Detalhes de um produto específico (preço, promoção, estoque, especificações, formas de pagamento). "
-            "Aceita o nome (ex.: 'Takamine GD20') ou o id. Se o produto não estiver à venda, já traz alternativas."
+            "Aceita o nome (ex.: 'Takamine GD20') ou o id. Use sempre que o cliente perguntar por um produto específico pelo nome: "
+            "informa também se está sem estoque, descontinuado ou em breve, e nesses casos já traz alternativas."
         ),
         "parameters": {
             "type": "object",
@@ -115,6 +116,14 @@ DECLARATIONS: list[dict[str, Any]] = [
 ]
 
 
+_SUMMARY_FIELDS = ("id", "nome", "categoria", "preco", "em_promocao", "preco_original", "desconto_percent", "preco_no_pix", "disponibilidade", "estoque")
+
+
+def _summary(product: dict[str, Any]) -> dict[str, Any]:
+    """Versão enxuta do produto para listas; os detalhes ficam em `detalhes_produto`."""
+    return {k: product[k] for k in _SUMMARY_FIELDS if k in product}
+
+
 def _integer_if_whole(value: Any) -> Any:
     """O modelo costuma mandar o número do pedido como 8.0."""
     return int(value) if isinstance(value, float) and value.is_integer() else value
@@ -170,11 +179,20 @@ class ToolBox:
         found = products.search_products(
             self.conn, consulta, categoria, preco_min, preco_max, incluir_indisponiveis, ordenar_por, int(limite)
         )
-        slim = [
-            {k: p[k] for k in ("id", "nome", "categoria", "preco", "em_promocao", "preco_original", "desconto_percent", "preco_no_pix", "disponibilidade", "estoque") if k in p}
-            for p in found
-        ]
-        return {"total": len(slim), "produtos": slim}
+        result = {"total": len(found), "produtos": [_summary(p) for p in found]}
+        if not found and not incluir_indisponiveis:
+            # Nada à venda com esse filtro: avisa se o produto existe mas está indisponível,
+            # para o agente não dizer que ele "não existe no catálogo".
+            hidden = products.search_products(
+                self.conn, consulta, categoria, preco_min, preco_max, True, ordenar_por, int(limite)
+            )
+            if hidden:
+                result["indisponiveis_com_esse_filtro"] = [_summary(p) for p in hidden]
+                result["observacao"] = (
+                    "Nenhum item à venda, mas estes existem no catálogo e estão indisponíveis. "
+                    "Use detalhes_produto para informar a situação e sugerir alternativas."
+                )
+        return result
 
     def detalhes_produto(self, produto: str | int) -> dict[str, Any]:
         return products.product_details(self.conn, _integer_if_whole(produto))

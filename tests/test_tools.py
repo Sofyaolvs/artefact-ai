@@ -60,3 +60,15 @@ def test_erros_viram_resultado_em_vez_de_excecao(box):
     assert "desconhecida" in box.call("apagar_tudo", {})["erro"]
     assert "argumentos inválidos" in box.call("detalhes_produto", {"produto": "x", "extra": 1})["erro"]
     assert "argumentos inválidos" in box.call("detalhes_produto", {})["erro"]
+
+
+def test_busca_vazia_avisa_que_o_produto_existe_mas_esta_indisponivel(box):
+    r = box.call("buscar_produtos", {"consulta": "Giannini GF-3D"})
+    assert r["total"] == 0
+    assert r["indisponiveis_com_esse_filtro"][0]["disponibilidade"] == "sem_estoque"
+    assert "detalhes_produto" in r["observacao"]
+
+
+def test_busca_vazia_de_produto_inexistente_nao_tem_aviso(box):
+    r = box.call("buscar_produtos", {"consulta": "saxofone selmer"})
+    assert r == {"total": 0, "produtos": []}

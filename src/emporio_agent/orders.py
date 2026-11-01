@@ -29,7 +29,8 @@ NOT_VERIFIED = {
     "verificado": False,
     "mensagem": (
         "Não foi possível validar esse pedido com os dados informados. "
-        "Peça ao cliente para conferir o número do pedido e o e-mail ou telefone cadastrado na compra. "
+        "Diga apenas que não conseguiu validar (nunca 'não encontrei o pedido') e peça ao cliente "
+        "para conferir o número do pedido e o e-mail ou telefone cadastrado na compra. "
         "Não confirme se o pedido existe nem revele qualquer dado dele."
     ),
 }
