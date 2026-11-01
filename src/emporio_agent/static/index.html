@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Empório da Música · Atendimento</title>
+<meta name="description" content="Lásol, o assistente virtual da Empório da Música: catálogo, pedidos, trocas e horário de funcionamento.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23b8301a'/%3E%3Cpath d='M20 7v13.2a3.7 3.7 0 1 1-2-3.3V11l-6 1.6v9.6a3.7 3.7 0 1 1-2-3.3V10.2z' fill='%23f6efe0'/%3E%3C/svg%3E">
+<style>
+  /* Cartaz de rua em duas tintas: papel jornal, tinta preta, vermelho de serigrafia.
+     Amarelo só em preço (marca-texto / etiqueta). */
+  :root, [data-theme="palco"] {
+    --paper: #0e0f12; --sheet: #15171c; --ink: #f3efe6; --muted: #a3a8b3; --rule: #2d313b;
+    --side: #20232b; --side-ink: #f3efe6; --chip: #2d313b; --chip-ink: #f3efe6;
+    --accent: #ffb52e; --accent-ink: #14100a; --tag: #ffb52e; --tag-ink: #14100a;
+    --bubble: #1d2027; --user: #f3efe6; --user-ink: #15171c; --warn: #ff8466;
+    --display: Impact, "Haettenschweiler", "Arial Narrow Bold", "Franklin Gothic Heavy", sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Courier New", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  [data-theme="marinho"] {
+    --paper: #e9e4d8; --sheet: #f5f2ea; --ink: #14213d; --muted: #566074; --rule: #cfc9b8;
+    --side: #14213d; --side-ink: #f5f2ea; --chip: #f5f2ea; --chip-ink: #14213d;
+    --accent: #b93a08; --accent-ink: #ffffff; --tag: #ffd166; --tag-ink: #14213d;
+    --bubble: #fffefb; --user: #14213d; --user-ink: #f5f2ea; --warn: #b42318;
+  }
+  [data-theme="verde"] {
+    --paper: #e6e8d9; --sheet: #f3f4e8; --ink: #10261c; --muted: #52645a; --rule: #c8cdb5;
+    --side: #0f4a35; --side-ink: #f3f4e8; --chip: #f3f4e8; --chip-ink: #10261c;
+    --accent: #0f6b4a; --accent-ink: #ffffff; --tag: #f5c518; --tag-ink: #10261c;
+    --bubble: #fcfdf4; --user: #10261c; --user-ink: #f3f4e8; --warn: #b42318;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; color: var(--ink); font: 16px/1.5 var(--sans); background: var(--paper);
+    display: grid; place-items: center; padding: 28px;
+  }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .app {
+    width: 100%; max-width: 1120px; height: min(900px, 100%);
+    display: grid; grid-template-columns: 330px minmax(0, 1fr);
+    background: var(--sheet); border: 2px solid var(--ink); overflow: hidden;
+    box-shadow: 8px 8px 0 var(--ink);
+  }
+
+  /* ---------- lateral: o cartaz ---------- */
+  .side { background: var(--side); color: var(--side-ink); padding: 26px 24px 22px; display: flex; flex-direction: column; gap: 22px; overflow-y: auto; border-right: 2px solid var(--ink); }
+  .brand h1 { margin: 0; font: 400 3.1rem/.88 var(--display); text-transform: uppercase; letter-spacing: .01em; }
+  .brand h1 span { display: block; }
+  .brand h1 .da { font-size: 1.5rem; line-height: 1.1; letter-spacing: .12em; }
+  .brand p { margin: 12px 0 0; font: .78rem/1.4 var(--mono); text-transform: uppercase; letter-spacing: .06em; border-top: 2px solid currentColor; padding-top: 9px; }
+
+  .status { align-self: flex-start; font: 700 .8rem/1 var(--mono); text-transform: uppercase; letter-spacing: .05em; padding: 8px 11px; border: 2px solid var(--side-ink); display: inline-flex; gap: 9px; align-items: center; }
+  .status i { width: 10px; height: 10px; background: var(--side-ink); flex: none; }
+  .status.open { background: var(--side-ink); color: var(--side); }
+  .status.open i { background: var(--side); }
+
+  .side h2 { margin: 0 0 8px; font: 400 1.05rem/1 var(--display); letter-spacing: .1em; text-transform: uppercase; }
+  .hours { list-style: none; margin: 0; padding: 0; font: .86rem/1.3 var(--mono); }
+  .hours li { display: flex; align-items: baseline; gap: 8px; padding: 6px 6px; }
+  .hours li::after { content: ""; order: 1; flex: 1; border-bottom: 2px dotted currentColor; opacity: .45; transform: translateY(-3px); }
+  .hours li span { order: 0; } .hours li b { order: 2; font-weight: 700; }
+  .hours li.today { background: var(--tag); color: var(--tag-ink); }
+  .hours li.today::after { opacity: .6; }
+  .holiday { margin: 8px 0 0; font: .8rem var(--mono); }
+
+  .contacts { display: grid; gap: 8px; }
+  .contact { display: flex; align-items: center; gap: 12px; padding: 10px 12px; text-decoration: none; color: var(--chip-ink); background: var(--chip); border: 2px solid var(--side-ink); transition: transform .12s, box-shadow .12s; }
+  .contact:hover { transform: translate(-2px, -2px); box-shadow: 3px 3px 0 var(--side-ink); }
+  .contact small { display: block; font: .68rem/1.2 var(--mono); text-transform: uppercase; letter-spacing: .08em; opacity: .7; }
+  .contact span { font-size: .9rem; line-height: 1.3; font-weight: 600; }
+  .contact.primary { background: var(--tag); color: var(--tag-ink); }
+
+  .scope { margin: 0; font-size: .82rem; line-height: 1.45; border: 2px dashed var(--side-ink); padding: 10px 12px; }
+  .scope b { font-family: var(--mono); text-transform: uppercase; letter-spacing: .04em; font-size: .78rem; }
+  .side-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+  .ghost { border: 2px solid var(--side-ink); background: transparent; padding: 10px 14px; cursor: pointer; display: flex; gap: 10px; align-items: center; justify-content: center; font: 700 .85rem var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+  .ghost:hover { background: var(--side-ink); color: var(--side); }
+  .close-side { display: none; }
+  .themes { display: flex; align-items: center; gap: 8px; font: 700 .72rem var(--mono); text-transform: uppercase; letter-spacing: .1em; }
+  .themes span { margin-right: auto; }
+  .themes button { width: 30px; height: 30px; border: 2px solid var(--side-ink); cursor: pointer; padding: 0; }
+  .themes button[aria-pressed="true"] { outline: 3px solid var(--side-ink); outline-offset: 2px; }
+  .sw-palco { background: linear-gradient(135deg, #15171c 50%, #ffb52e 50%); }
+  .sw-marinho { background: linear-gradient(135deg, #14213d 50%, #b93a08 50%); }
+  .sw-verde { background: linear-gradient(135deg, #0f4a35 50%, #f5c518 50%); }
+
+  /* ---------- conversa ---------- */
+  .main { display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative; }
+  .topbar { display: flex; align-items: center; gap: 12px; padding: 14px 24px; border-bottom: 2px solid var(--ink); }
+  .topbar h2 { margin: 0; font: 400 1.5rem/1 var(--display); text-transform: uppercase; letter-spacing: .04em; }
+  .topbar p { margin: 3px 0 0; font: .72rem var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .topbar .grow { flex: 1; min-width: 0; }
+  .mobile-only { display: none; }
+  .pill-btn { border: 2px solid var(--ink); background: var(--tag); color: var(--tag-ink); padding: 7px 12px; cursor: pointer; font: 700 .78rem var(--mono); text-transform: uppercase; letter-spacing: .05em; align-items: center; gap: 8px; }
+
+  #messages { flex: 1; overflow-y: auto; padding: 26px 26px 12px; display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth; overscroll-behavior: contain; }
+
+  .msg { display: flex; flex-direction: column; gap: 6px; max-width: min(84%, 620px); animation: slip .22s cubic-bezier(.2, .8, .3, 1) both; }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .who { font: 700 .68rem/1 var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+  .bot .who { color: var(--accent); }
+  .bubble { padding: 11px 15px; overflow-wrap: anywhere; background: var(--bubble); border: 2px solid var(--ink); }
+  .user .bubble { background: var(--user); color: var(--user-ink); white-space: pre-wrap; clip-path: polygon(0 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%); padding-right: 22px; }
+  .error .bubble { border-color: var(--warn); border-style: dashed; }
+  .bubble p { margin: 0; }
+  .bubble p + p, .bubble p + .items, .bubble .items + p { margin-top: 10px; }
+
+  /* preço: marca-texto no meio da frase, etiqueta na lista */
+  .price { font: 700 .95em var(--mono); background: linear-gradient(transparent 38%, var(--tag) 38% 92%, transparent 92%); color: var(--ink); padding: 0 3px; white-space: nowrap; }
+  .pct { font: 700 .9em var(--mono); color: var(--accent); white-space: nowrap; }
+  .items { list-style: none; margin: 0; padding: 0; }
+  .items li { display: flex; gap: 14px; align-items: center; justify-content: space-between; padding: 9px 0; border-bottom: 1px dotted var(--muted); }
+  .items li:first-child { border-top: 1px dotted var(--muted); }
+  .items li .nm { min-width: 0; font-weight: 600; }
+  .items li .nm em { display: block; font-style: normal; font-weight: 400; font-size: .84rem; color: var(--muted); }
+  .items li .pr { flex: none; font: 700 1rem var(--mono); font-variant-numeric: tabular-nums; background: var(--tag); color: var(--tag-ink); padding: 5px 10px 5px 18px; white-space: nowrap;
+    clip-path: polygon(10px 0, 100% 0, 100% 100%, 10px 100%, 0 50%); }
+  .items li.plain { justify-content: flex-start; }
+  .items li.plain::before { content: "—"; font-family: var(--mono); color: var(--accent); margin-right: 10px; flex: none; }
+
+  .meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font: .72rem var(--mono); color: var(--muted); min-height: 22px; }
+  .stamp { display: inline-block; font: 700 .68rem/1 var(--mono); text-transform: uppercase; letter-spacing: .12em; color: var(--accent); border: 2px solid var(--accent); padding: 4px 7px; transform: rotate(-2deg); opacity: .9; }
+  .stamp small { font: inherit; opacity: .75; margin-left: 6px; }
+  .copy { border: 0; background: transparent; cursor: pointer; padding: 2px 4px; color: var(--muted); opacity: 0; transition: opacity .15s; display: inline-flex; gap: 5px; align-items: center; font: inherit; text-decoration: underline; text-underline-offset: 3px; }
+  .msg:hover .copy, .copy:focus-visible { opacity: 1; }
+  @media (hover: none) { .copy { opacity: 1; } }
+
+  .handoff { display: inline-flex; gap: 9px; align-items: center; align-self: flex-start; padding: 9px 14px; text-decoration: none; background: var(--tag); color: var(--tag-ink); border: 2px solid var(--ink); font: 700 .8rem var(--mono); text-transform: uppercase; letter-spacing: .04em; transition: transform .12s, box-shadow .12s; }
+  .handoff:hover { transform: translate(-2px, -2px); box-shadow: 3px 3px 0 var(--ink); }
+  .retry { align-self: flex-start; border: 2px solid var(--warn); color: var(--warn); background: transparent; padding: 6px 14px; cursor: pointer; font: 700 .78rem var(--mono); text-transform: uppercase; }
+  .retry:hover { background: var(--warn); color: var(--sheet); }
+
+  /* boas-vindas: cardápio */
+  .welcome { margin: auto 0; width: 100%; max-width: 640px; padding: 4px 0 14px; animation: slip .3s ease-out both; }
+  .welcome h2 { margin: 0; font: 400 clamp(2.6rem, 7vw, 4.4rem)/.9 var(--display); text-transform: uppercase; }
+  .welcome h2 em { font-style: normal; color: var(--accent); }
+  .welcome > p { margin: 14px 0 0; color: var(--muted); max-width: 46ch; }
+  .menu { list-style: none; margin: 26px 0 0; padding: 0; border-top: 2px solid var(--ink); }
+  .menu li { border-bottom: 1px solid var(--rule); }
+  .menu button { width: 100%; display: grid; grid-template-columns: 2.4rem 1fr auto; gap: 8px; align-items: baseline; text-align: left; background: none; border: 0; padding: 13px 4px; cursor: pointer; transition: background .12s, padding .12s; }
+  .menu button:hover { background: var(--tag); color: var(--tag-ink); padding-left: 12px; }
+  .menu .n { font: 700 .85rem var(--mono); color: var(--accent); }
+  .menu button:hover .n { color: var(--tag-ink); }
+  .menu b { font: 400 1.35rem/1.1 var(--display); text-transform: uppercase; letter-spacing: .03em; }
+  .menu span.d { display: block; font: .8rem var(--mono); color: var(--muted); margin-top: 3px; text-transform: none; }
+  .menu button:hover .d { color: var(--tag-ink); }
+  .menu .arrow { font: 1.3rem var(--mono); }
+  .privacy { margin: 18px 0 0; font: .74rem/1.5 var(--mono); color: var(--muted); }
+
+  /* digitando */
+  .thinking { display: flex; gap: 12px; align-items: center; }
+  .eq { display: inline-flex; gap: 3px; align-items: flex-end; height: 18px; }
+  .eq i { width: 5px; background: var(--accent); animation: eq 1s infinite steps(5); height: 100%; transform-origin: bottom; }
+  .eq i:nth-child(2) { animation-delay: .2s; } .eq i:nth-child(3) { animation-delay: .4s; } .eq i:nth-child(4) { animation-delay: .1s; }
+  .thinking span { font: .8rem var(--mono); color: var(--muted); }
+
+  .jump { position: absolute; right: 24px; bottom: 120px; border: 2px solid var(--ink); background: var(--sheet); padding: 6px 12px; font: 700 .72rem var(--mono); text-transform: uppercase; cursor: pointer; display: none; box-shadow: 3px 3px 0 var(--ink); }
+  .jump.show { display: inline-flex; gap: 7px; align-items: center; }
+
+  /* campo de envio */
+  form { padding: 12px 24px 6px; }
+  .field { display: flex; align-items: stretch; border: 2px solid var(--ink); background: var(--bubble); }
+  .field:focus-within { box-shadow: 4px 4px 0 var(--accent); }
+  textarea { flex: 1; resize: none; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; line-height: 1.45; padding: 12px 14px; max-height: 150px; min-height: 28px; }
+  textarea::placeholder { color: var(--muted); }
+  .send { flex: none; border: 0; border-left: 2px solid var(--ink); padding: 0 20px; cursor: pointer; background: var(--user); color: var(--user-ink); font: 400 1.1rem var(--display); text-transform: uppercase; letter-spacing: .08em; display: flex; align-items: center; gap: 8px; transition: background .12s; }
+  .send:hover:not(:disabled) { background: var(--accent); color: var(--accent-ink); }
+  .send:disabled { background: transparent; color: var(--muted); cursor: not-allowed; }
+  .hint { display: flex; justify-content: space-between; gap: 12px; padding: 7px 2px 0; font: .7rem var(--mono); color: var(--muted); }
+  .hint .count.warn { color: var(--warn); font-weight: 700; }
+  .foot { margin: 0; padding: 4px 24px 14px; font: .7rem var(--mono); color: var(--muted); }
+
+  @keyframes slip { from { opacity: 0; transform: translateY(10px) rotate(-.4deg); } to { opacity: 1; transform: none; } }
+  @keyframes eq { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+  @media (max-width: 860px) {
+    body { padding: 0; }
+    .app { grid-template-columns: 1fr; height: 100dvh; max-width: none; border: 0; box-shadow: none; }
+    .side { position: fixed; inset: 0; z-index: 20; transform: translateY(100%); visibility: hidden; transition: transform .25s ease, visibility 0s .25s; border-right: 0; }
+    .side.open { transform: none; visibility: visible; transition: transform .25s ease; }
+    .close-side { display: flex; }
+    .mobile-only { display: inline-flex; }
+    .topbar { padding: 12px 14px; }
+    #messages { padding: 18px 14px 6px; }
+    .msg { max-width: 94%; }
+    form { padding: 10px 12px 6px; }
+    .foot { padding: 4px 14px 12px; }
+    .hint .keys { display: none; }
+    .jump { right: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side" id="side" aria-label="Informações da loja">
+    <div class="brand">
+      <h1><span>Empório</span><span class="da">da</span><span>Música</span></h1>
+      <p id="slogan">Sua música começa aqui.<br>Desde 2008 · Campo Grande/MS</p>
+    </div>
+
+    <div id="status" class="status" role="status"><i></i><span>verificando…</span></div>
+
+    <section>
+      <h2>Horário</h2>
+      <ul class="hours" id="hours"></ul>
+      <p class="holiday" id="holiday" hidden></p>
+    </section>
+
+    <section>
+      <h2>Falar com a equipe</h2>
+      <div class="contacts" id="contacts"></div>
+    </section>
+
+    <p class="scope"><b>Só instrumento.</b> <span id="not-sold">Não vendemos cordas, palhetas, cabos, cases, pedais nem amplificadores.</span></p>
+
+    <div class="side-foot">
+      <div class="themes" role="group" aria-label="Paleta de cores">
+        <span>Cores</span>
+        <button type="button" data-set-theme="palco" class="sw-palco" aria-label="Palco: preto e âmbar"></button>
+        <button type="button" data-set-theme="marinho" class="sw-marinho" aria-label="Marinho: azul e laranja"></button>
+        <button type="button" data-set-theme="verde" class="sw-verde" aria-label="Verde: verde e amarelo"></button>
+      </div>
+      <button type="button" class="ghost close-side" id="close-side">Voltar à conversa</button>
+      <button type="button" class="ghost" id="new">+ Nova conversa</button>
+    </div>
+  </aside>
+
+  <main class="main" aria-label="Atendimento da Empório da Música">
+    <div class="topbar">
+      <div class="grow">
+        <h2>Atendimento</h2>
+        <p>Lásol, assistente virtual · preço e pedido direto do sistema</p>
+      </div>
+      <button type="button" class="pill-btn mobile-only" id="open-side">
+        <span id="mini-status">Loja</span> ›
+      </button>
+    </div>
+
+    <section id="messages" role="log" aria-live="polite" aria-label="Conversa"></section>
+
+    <button type="button" class="jump" id="jump">↓ Última mensagem</button>
+
+    <form id="form" autocomplete="off">
+      <div class="field">
+        <textarea id="input" rows="1" maxlength="2000" placeholder="Escreva pro Lásol. Pode ser do seu jeito." aria-label="Mensagem"></textarea>
+        <button id="send" class="send" type="submit" aria-label="Enviar" disabled>Enviar <span aria-hidden="true">→</span></button>
+      </div>
+      <div class="hint"><span class="keys">Enter envia · Shift+Enter pula linha</span><span class="count" id="count"></span></div>
+    </form>
+    <p class="foot">Sou o Lásol, assistente virtual. Não abro devolução nem fecho compra: isso é com a equipe.</p>
+  </main>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const box = $("messages"), input = $("input"), send = $("send"), form = $("form"), jump = $("jump"), side = $("side");
+  const MAX = 2000;
+  let shop = null;          // dados da loja (/api/store)
+  let busy = false;
+
+  const STARTERS = [
+    { title: "Quero um instrumento", sub: "ex.: violão até R$ 1.000", text: "Quais violões vocês têm até R$ 1.000?" },
+    { title: "Quanto custa?", sub: "ex.: Takamine GD20", text: "Quanto custa o Takamine GD20?" },
+    { title: "Cadê meu pedido?", sub: "precisa do número e do e-mail ou telefone", text: "Quero saber do meu pedido" },
+    { title: "Troca e devolução", sub: "prazos e como funciona", text: "Me arrependi de uma compra, posso devolver?" },
+  ];
+
+  /* ---------- utilidades ---------- */
+  const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* modo privado */ } };
+  const newId = () => (crypto.randomUUID ? crypto.randomUUID().replace(/-/g, "").slice(0, 16) : Math.random().toString(36).slice(2, 18));
+  let sessionId = lsGet("emporio-session") || newId();
+  lsSet("emporio-session", sessionId);
+
+  const NS = "http://www.w3.org/2000/svg";
+  function el(tag, cls, text) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+  function icon(paths, size = 18, extra = "") {
+    const svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("width", size); svg.setAttribute("height", size); svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none"); svg.setAttribute("stroke", "currentColor"); svg.setAttribute("stroke-width", "2");
+    svg.setAttribute("stroke-linecap", "round"); svg.setAttribute("stroke-linejoin", "round");
+    if (extra) svg.setAttribute("class", extra);
+    svg.setAttribute("aria-hidden", "true");
+    svg.innerHTML = paths; // só constantes deste arquivo, nunca texto de usuário ou do modelo
+    return svg;
+  }
+  const ICONS = {
+    wa: '<path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 20.5l1.7-5.4A8.4 8.4 0 1 1 21 11.5z"/>',
+    phone: '<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 10a16 16 0 0 0 6 6l1.4-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/>',
+    pin: '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+  };
+
+  /* ---------- texto do assistente → HTML seguro ----------
+     O modelo responde em texto puro. Aqui só destacamos o que ajuda a ler:
+     preços, percentuais e listas de produtos. Tudo entra via textContent. */
+  const PRICE = /R\$\s?\d{1,3}(?:\.\d{3})*,\d{2}/g;
+  const INLINE = /(R\$\s?\d{1,3}(?:\.\d{3})*,\d{2}|\d{1,2}\s?%)/g;
+  const BULLET = /^\s*(?:[-•*–]|\d{1,2}[.)])\s+/;
+
+  function inline(parent, text) {
+    text.split(INLINE).forEach((part, i) => {
+      if (!part) return;
+      if (i % 2 === 1) parent.appendChild(el("span", part.includes("R$") ? "price" : "pct", part));
+      else parent.appendChild(document.createTextNode(part));
+    });
+  }
+
+  function listItem(raw) {
+    const text = raw.replace(BULLET, "").trim();
+    const li = el("li");
+    const prices = text.match(PRICE) || [];
+    if (prices.length === 1) {
+      const at = text.indexOf(prices[0]);
+      const before = text.slice(0, at).replace(/[\s\-–—:|·(]+$/, "").trim();
+      const after = text.slice(at + prices[0].length).replace(/^[\s\-–—:|·),;]+/, "").trim();
+      if (before) {
+        const nm = el("div", "nm");
+        nm.appendChild(document.createTextNode(before));
+        if (after) nm.appendChild(el("em", "", after));
+        li.append(nm, el("span", "pr", prices[0]));
+        return li;
+      }
+    }
+    li.className = "plain";
+    const span = el("span");
+    inline(span, text);
+    li.appendChild(span);
+    return li;
+  }
+
+  function richText(text) {
+    const frag = document.createDocumentFragment();
+    let para = [], items = null;
+    const flushPara = () => {
+      if (!para.length) return;
+      const p = el("p");
+      para.forEach((line, i) => { if (i) p.appendChild(document.createElement("br")); inline(p, line); });
+      frag.appendChild(p); para = [];
+    };
+    const flushItems = () => { if (items) { frag.appendChild(items); items = null; } };
+    text.split("\n").forEach((line) => {
+      if (!line.trim()) { flushPara(); flushItems(); return; }
+      if (BULLET.test(line)) {
+        flushPara();
+        if (!items) items = el("ul", "items");
+        items.appendChild(listItem(line));
+      } else { flushItems(); para.push(line.trim()); }
+    });
+    flushPara(); flushItems();
+    return frag;
+  }
+
+  /* ---------- mensagens ---------- */
+  const clock = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+  function who(role, time) {
+    const w = el("div", "who", (role === "bot" ? "Lásol" : "Você") + (time ? " · " + time : ""));
+    return w;
+  }
+
+  async function copyText(btn, text) {
+    try { await navigator.clipboard.writeText(text); } catch { return; }
+    const old = btn.textContent;
+    btn.textContent = "copiado";
+    setTimeout(() => { btn.textContent = old; }, 1400);
+  }
+
+  function addMessage(role, text, extra = {}) {
+    const msg = el("div", `msg ${role}${extra.error ? " error" : ""}`);
+    msg.appendChild(who(role, extra.time));
+    const bubble = el("div", "bubble");
+    if (role === "bot" && !extra.error) bubble.appendChild(richText(text)); else bubble.textContent = text;
+    msg.appendChild(bubble);
+
+    const meta = el("div", "meta");
+    if (extra.consulted && extra.consulted.length) {
+      const stamp = el("span", "stamp", "Conferido no sistema");
+      stamp.appendChild(el("small", "", extra.consulted.join(" · ")));
+      meta.appendChild(stamp);
+    }
+    if (role === "bot" && !extra.error) {
+      const copy = el("button", "copy", "copiar");
+      copy.type = "button";
+      copy.setAttribute("aria-label", "Copiar resposta");
+      copy.addEventListener("click", () => copyText(copy, text));
+      meta.appendChild(copy);
+    }
+    if (meta.childNodes.length) msg.appendChild(meta);
+
+    if (role === "bot" && !extra.error && shop && /whatss?app|equipe|ger[eê]ncia|atendente/i.test(text)) {
+      const link = el("a", "handoff", `Falar com a equipe · ${shop.whatsapp}`);
+      link.href = shop.whatsapp_url; link.target = "_blank"; link.rel = "noopener";
+      msg.appendChild(link);
+    }
+    if (extra.retry) {
+      const btn = el("button", "retry", "Tentar de novo");
+      btn.type = "button";
+      btn.addEventListener("click", () => { msg.remove(); submit(extra.retry); });
+      msg.appendChild(btn);
+    }
+    box.appendChild(msg);
+    if (!extra.quiet) scrollDown(true);
+    return msg;
+  }
+
+  function showWelcome() {
+    box.replaceChildren();
+    const w = el("div", "welcome");
+    const h = el("h2");
+    h.append("Fala! Aqui é o ", el("em", "", "Lásol."), " Tá procurando o quê?");
+    w.appendChild(h);
+    w.appendChild(el("p", "", "Escreva do seu jeito. Eu olho o catálogo, o pedido e as regras da loja antes de responder."));
+    const list = el("ul", "menu");
+    STARTERS.forEach((s, i) => {
+      const li = el("li");
+      const b = el("button");
+      b.type = "button";
+      const d = el("div");
+      d.appendChild(el("b", "", s.title));
+      d.appendChild(el("span", "d", s.sub));
+      b.append(el("span", "n", String(i + 1).padStart(2, "0")), d, el("span", "arrow", "→"));
+      b.addEventListener("click", () => submit(s.text));
+      li.appendChild(b);
+      list.appendChild(li);
+    });
+    w.appendChild(list);
+    w.appendChild(el("p", "privacy", "Pedido: peço o número e o e-mail ou telefone da compra. Nunca peço senha nem dado de cartão."));
+    box.appendChild(w);
+  }
+
+  function thinking() {
+    const msg = el("div", "msg bot");
+    msg.appendChild(who("bot"));
+    const bubble = el("div", "bubble thinking");
+    const eq = el("span", "eq");
+    for (let i = 0; i < 4; i++) eq.appendChild(document.createElement("i"));
+    const label = el("span", "", "Consultando…");
+    bubble.append(eq, label);
+    msg.appendChild(bubble);
+    msg.setAttribute("aria-label", "O assistente está respondendo");
+    box.appendChild(msg);
+    scrollDown(true);
+    const slow = setTimeout(() => { label.textContent = "Demorando mais que o normal. O modelo pode estar sobrecarregado…"; }, 9000);
+    return () => { clearTimeout(slow); msg.remove(); };
+  }
+
+  /* ---------- rolagem ---------- */
+  const nearBottom = () => box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+  function scrollDown(force) {
+    if (force || nearBottom()) box.scrollTop = box.scrollHeight;
+  }
+  box.addEventListener("scroll", () => jump.classList.toggle("show", !nearBottom() && !!box.querySelector(".msg")));
+  jump.addEventListener("click", () => { box.scrollTop = box.scrollHeight; });
+
+  /* ---------- envio ---------- */
+  function setBusy(v) {
+    busy = v;
+    input.disabled = v;
+    refreshSend();
+    if (!v) input.focus();
+  }
+  function refreshSend() { send.disabled = busy || !input.value.trim(); }
+
+  async function submit(text) {
+    text = (text || "").trim();
+    if (!text || busy) return;
+    box.querySelector(".welcome")?.remove();
+    addMessage("user", text, { time: clock() });
+    input.value = ""; autosize();
+    setBusy(true);
+    const stop = thinking();
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: sessionId, message: text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      stop();
+      if (!res.ok) {
+        const msg = typeof data.detail === "string" ? data.detail : "Não consegui responder agora.";
+        addMessage("bot", msg, { error: true, retry: text });
+      } else {
+        addMessage("bot", data.reply, { consulted: data.consulted, time: clock() });
+      }
+    } catch {
+      stop();
+      addMessage("bot", "Sem conexão com o servidor. Confira se ele está rodando e tente de novo.", { error: true, retry: text });
+    }
+    setBusy(false);
+    refreshStatus();
+  }
+
+  function autosize() {
+    input.style.height = "auto";
+    input.style.height = Math.min(input.scrollHeight, 150) + "px";
+    const left = MAX - input.value.length;
+    const c = $("count");
+    c.textContent = left <= 300 ? `${left} caracteres restantes` : "";
+    c.classList.toggle("warn", left <= 100);
+    refreshSend();
+  }
+
+  /* ---------- painel da loja ---------- */
+  function contact(href, iconPaths, small, label, primary) {
+    const a = el("a", "contact" + (primary ? " primary" : ""));
+    a.href = href;
+    if (href.startsWith("http")) { a.target = "_blank"; a.rel = "noopener"; }
+    const d = el("div");
+    d.append(el("small", "", small), el("span", "", label));
+    a.appendChild(d);
+    return a;
+  }
+
+  function renderShop(data) {
+    shop = data;
+    $("not-sold").textContent = `Não vendemos ${data.not_sold}.`;
+    const hours = $("hours");
+    hours.replaceChildren();
+    data.hours.forEach((h, i) => {
+      const li = el("li", i === data.today ? "today" : "");
+      if (i === data.today) li.setAttribute("aria-current", "date");
+      li.append(el("span", "", h.days.charAt(0).toUpperCase() + h.days.slice(1)), el("b", "", h.hours.replace(" às ", "–")));
+      hours.appendChild(li);
+    });
+    const holiday = $("holiday");
+    holiday.hidden = !data.holiday;
+    if (data.holiday) holiday.textContent = `Hoje é feriado: ${data.holiday}.`;
+    const c = $("contacts");
+    c.replaceChildren(
+      contact(data.whatsapp_url, ICONS.wa, "WhatsApp", data.whatsapp, true),
+      contact(data.phone_url, ICONS.phone, "Telefone", data.phone),
+      contact(data.map_url, ICONS.pin, "Endereço", data.address.replace(/,\s*CEP.*$/, "")),
+    );
+    applyStatus(data);
+  }
+
+  function applyStatus(data) {
+    const s = $("status");
+    s.className = `status ${data.open ? "open" : "closed"}`;
+    s.lastChild.textContent = data.label;
+    $("mini-status").textContent = data.open ? "Aberta" : "Fechada";
+  }
+
+  async function refreshStatus() {
+    try { applyStatus(await (await fetch("/api/status")).json()); }
+    catch { $("status").className = "status"; $("status").lastChild.textContent = "sem conexão"; }
+  }
+
+  async function loadShop() {
+    try { renderShop(await (await fetch("/api/store")).json()); } catch { refreshStatus(); }
+  }
+
+  async function loadHistory() {
+    try {
+      const data = await (await fetch(`/api/history/${sessionId}`)).json();
+      if (data.messages && data.messages.length) {
+        box.replaceChildren();
+        data.messages.forEach((m) => addMessage(m.role === "user" ? "user" : "bot", m.text, { quiet: true }));
+        box.scrollTop = box.scrollHeight;
+        return;
+      }
+    } catch { /* sem histórico */ }
+    showWelcome();
+  }
+
+  /* ---------- eventos ---------- */
+  form.addEventListener("submit", (e) => { e.preventDefault(); submit(input.value); });
+  input.addEventListener("input", autosize);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); submit(input.value); }
+  });
+  $("new").addEventListener("click", () => {
+    if (busy) return;
+    sessionId = newId(); lsSet("emporio-session", sessionId);
+    showWelcome(); side.classList.remove("open"); input.focus();
+  });
+  $("open-side").addEventListener("click", () => side.classList.add("open"));
+  $("close-side").addEventListener("click", () => side.classList.remove("open"));
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") side.classList.remove("open"); });
+
+  const THEMES = ["palco", "marinho", "verde"];
+  function setTheme(name) {
+    if (!THEMES.includes(name)) name = "palco";
+    document.documentElement.dataset.theme = name;
+    lsSet("emporio-tema", name);
+    document.querySelectorAll("[data-set-theme]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.setTheme === name)));
+  }
+  document.querySelectorAll("[data-set-theme]").forEach((b) => b.addEventListener("click", () => setTheme(b.dataset.setTheme)));
+  setTheme(new URLSearchParams(location.search).get("tema") || lsGet("emporio-tema"));
+
+  loadShop();
+  loadHistory();
+  setInterval(refreshStatus, 60000);
+  autosize();
+  input.focus();
+})();
+</script>
+</body>
+</html>

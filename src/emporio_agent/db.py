@@ -84,9 +84,12 @@ def _specs(raw: str) -> str:
     return json.dumps(json.loads(raw or "{}"), ensure_ascii=False)
 
 
-def build_database(data_dir: Path = DATA_DIR, path: str = ":memory:") -> sqlite3.Connection:
-    """Cria o banco e carrega todos os CSVs de `data_dir`."""
-    conn = sqlite3.connect(path)
+def build_database(data_dir: Path = DATA_DIR, path: str = ":memory:", check_same_thread: bool = True) -> sqlite3.Connection:
+    """Cria o banco e carrega todos os CSVs de `data_dir`.
+
+    `check_same_thread=False` permite compartilhar a conexão (só leitura depois da carga) entre as threads do servidor web.
+    """
+    conn = sqlite3.connect(path, check_same_thread=check_same_thread)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SCHEMA)
